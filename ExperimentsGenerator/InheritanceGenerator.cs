@@ -44,8 +44,9 @@ namespace Experiments
 
 			//used to assemble the full namespace in the correct order
 			List<string> stack = new();
-			//loop over the candidate classes, and keep the ones that derive from Parent
-			List<INamedTypeSymbol> childTypes = new();
+
+			// This diagnostic is erroneous, we are already passing SymbolEqualityComparer
+			HashSet<INamedTypeSymbol> childTypes = new(SymbolEqualityComparer.Default);
 			foreach (var candidate in receiver.CandidateTypes) {
 				var model = compilation.GetSemanticModel(candidate.SyntaxTree);
 				var declaredType = model.GetDeclaredSymbol(candidate)!;
@@ -81,18 +82,17 @@ namespace Experiments
 				if (!isChild)
 					continue;
 
-				source = source.Append(@"		public static bool ")
-					.Append(candidate.Identifier.ToString());
-
 				if (IsInChildNamespace(declaredType)) {
-					childTypes.Add(declaredType);
-					source = source.AppendLine(@"_IsChild = true;");
+					_ = childTypes.Add(declaredType);
 				}
 				else {
 					//Add error message
 					context.ReportDiagnostic(Diagnostic.Create(_DiagnosticIncorrectNamespace, Location.Create(candidate.SyntaxTree, candidate.Identifier.Span), declaredType.Name));
-					source = source.AppendLine(@"_IsChild = false;");
 				}
+			}
+
+			foreach (var child in childTypes) {
+				// Generate code for child types
 			}
 
 			source = source.AppendLine(@"
